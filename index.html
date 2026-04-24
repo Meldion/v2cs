@@ -227,10 +227,10 @@
 
     <!-- Stats -->
     <div class="stats-bar">
-      <div class="stat-card"><div class="stat-label">Total Checkout</div><div class="stat-value teal" id="statTotal">0</div></div>
+      <div class="stat-card"><div class="stat-label">Total Check Ins</div><div class="stat-value teal" id="statTotal">0</div></div>
       <div class="stat-card"><div class="stat-label">Currently waiting</div><div class="stat-value amber" id="statWaiting">0</div></div>
       <div class="stat-card"><div class="stat-label">Being served</div><div class="stat-value teal" id="statServing">0</div></div>
-      <div class="stat-card"><div class="stat-label">Completed</div><div class="stat-value" id="statDone">0</div></div>
+      <div class="stat-card"><div class="stat-label">Total People (Group)</div><div class="stat-value" id="statDone">0</div></div>
     </div>
 
     <!-- Check-in form -->
@@ -276,6 +276,7 @@
         <input type="text" id="searchInput" placeholder="Search by ID..." oninput="onSearch()">
       </div>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <span id="completedGroupTotal" style="font-size:12px;color:var(--text-2);font-weight:600;">Total people (Group): 0</span>
         <label style="font-size:12px;color:var(--text-2);">Rows per page</label>
         <select class="rows-select" id="rowsPerPage" onchange="onRowsChange()">
           <option value="10">10</option>
@@ -291,16 +292,16 @@
         <table>
           <thead>
             <tr>
-              <th onclick="sortBy('row')">#<span class="sort-arrow" id="sort-row">↕</span></th>
-              <th onclick="sortBy('id')">👤 Customer ID<span class="sort-arrow" id="sort-id">↕</span></th>
-              <th onclick="sortBy('groupSize')">👥 Group<span class="sort-arrow" id="sort-groupSize">↕</span></th>
-              <th onclick="sortBy('pos')">🧾 POS<span class="sort-arrow" id="sort-pos">↕</span></th>
-              <th onclick="sortBy('remarks')">📝 Remarks<span class="sort-arrow" id="sort-remarks">↕</span></th>
-              <th onclick="sortBy('timeIn')">🕒 Time In<span class="sort-arrow" id="sort-timeIn">↕</span></th>
-              <th onclick="sortBy('startOrder')">▶ Order Start<span class="sort-arrow" id="sort-startOrder">↕</span></th>
-              <th onclick="sortBy('timeOut')">✅ Time Out<span class="sort-arrow" id="sort-timeOut">↕</span></th>
-              <th onclick="sortBy('waitMs')">⏳ Wait Time<span class="sort-arrow" id="sort-waitMs">↕</span></th>
-              <th onclick="sortBy('totalMs')">⌛ Total Time<span class="sort-arrow" id="sort-totalMs">↕</span></th>
+              <th onclick="sortBy('row')">#<span class="sort-arrow" id="sort-row">↑↓</span></th>
+              <th onclick="sortBy('id')">👤 Customer ID<span class="sort-arrow" id="sort-id">↑↓</span></th>
+              <th onclick="sortBy('groupSize')">👥 Group<span class="sort-arrow" id="sort-groupSize">↑↓</span></th>
+              <th onclick="sortBy('pos')">🧾 POS<span class="sort-arrow" id="sort-pos">↑↓</span></th>
+              <th onclick="sortBy('remarks')">📝 Remarks<span class="sort-arrow" id="sort-remarks">↑↓</span></th>
+              <th onclick="sortBy('timeIn')">🕒 Time In<span class="sort-arrow" id="sort-timeIn">↑↓</span></th>
+              <th onclick="sortBy('startOrder')">▶ Order Start<span class="sort-arrow" id="sort-startOrder">↑↓</span></th>
+              <th onclick="sortBy('timeOut')">✅ Time Out<span class="sort-arrow" id="sort-timeOut">↑↓</span></th>
+              <th onclick="sortBy('waitMs')">⏳ Wait Time<span class="sort-arrow" id="sort-waitMs">↑↓</span></th>
+              <th onclick="sortBy('totalMs')">⌛ Total Time<span class="sort-arrow" id="sort-totalMs">↑↓</span></th>
             </tr>
           </thead>
           <tbody id="completedBody"></tbody>
@@ -745,8 +746,9 @@ function updateStats() {
   const waitingPeople = vals.filter(c => c.status === 'waiting').reduce((n, c) => n + (c.groupSize || 1), 0);
   const servingPeople = vals.filter(c => c.status === 'active').reduce((n, c) => n + (c.groupSize || 1), 0);
   const donePeople = completedList.reduce((n, c) => n + (c.groupSize || 1), 0);
+  const doneCheckIns = completedList.length;
   const queuePeople = waitingPeople + servingPeople;
-  document.getElementById('statTotal').textContent   = donePeople;
+  document.getElementById('statTotal').textContent   = doneCheckIns;
   document.getElementById('statWaiting').textContent = waitingPeople;
   document.getElementById('statServing').textContent = servingPeople;
   document.getElementById('statDone').textContent    = donePeople;
@@ -757,10 +759,10 @@ function updateCounts() {
   const activePeople = Object.values(customers)
     .filter(c => c.status !== 'done')
     .reduce((n, c) => n + (c.groupSize || 1), 0);
-  const completedPeople = completedList.reduce((n, c) => n + (c.groupSize || 1), 0);
+  const completedCheckIns = completedList.length;
   const leftPeople = leftQueueList.reduce((n, c) => n + (c.groupSize || 1), 0);
   document.getElementById('activeCount').textContent    = activePeople;
-  document.getElementById('completedCount').textContent = completedPeople;
+  document.getElementById('completedCount').textContent = completedCheckIns;
   document.getElementById('leftCount').textContent      = leftPeople;
 }
 function refreshDashboard() {
@@ -812,12 +814,15 @@ function applyFilterSort() {
     const th = el?.closest('th');
     if (!el) return;
     if (c === sortCol) { el.textContent = sortDir === 'asc' ? '↑' : '↓'; th.classList.add('sorted'); }
-    else               { el.textContent = '↕'; th.classList.remove('sorted'); }
+    else               { el.textContent = '↑↓'; th.classList.remove('sorted'); }
   });
 }
 
 function renderTable() {
   const tbody = document.getElementById('completedBody');
+  const groupTotalEl = document.getElementById('completedGroupTotal');
+  const totalGroupPeople = completedList.reduce((n, c) => n + (c.groupSize || 1), 0);
+  if (groupTotalEl) groupTotalEl.textContent = `Total people (Group): ${totalGroupPeople}`;
   if (filteredList.length === 0) {
     tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;padding:32px;color:var(--text-3);font-family:var(--sans);">${searchQuery ? 'No results for "' + esc(searchQuery) + '"' : 'No completed customers yet.'}</td></tr>`;
     document.getElementById('paginationBar').innerHTML = '';
@@ -1059,7 +1064,7 @@ function resetAllData() {
   const rowsSelect = document.getElementById('rowsPerPage');
 
   if (input) input.value = '';
-  if (groupInput) groupInput.value = '1';
+  if (groupInput) groupInput.value = '';
   if (newPosInput) newPosInput.value = '';
   if (searchInput) searchInput.value = '';
   if (rowsSelect) rowsSelect.value = '25';
