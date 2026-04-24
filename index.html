@@ -35,7 +35,7 @@
   body { font-family: var(--sans); background: var(--bg); color: var(--text); min-height: 100vh; }
 
   /* ── Layout ── */
-  .app { max-width: 860px; margin: 0 auto; padding: 16px; }
+  .app { width: 100%; max-width: none; margin: 0; padding: 16px 18px; }
   header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
   .logo { display: flex; align-items: center; gap: 10px; }
   .logo-icon { width: 36px; height: 36px; background: var(--teal); border-radius: 9px; display: flex; align-items: center; justify-content: center; }
@@ -82,17 +82,36 @@
   .section-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
   .section-title { font-size: 12px; font-weight: 600; color: var(--text-2); letter-spacing: .06em; text-transform: uppercase; display: inline-flex; align-items: center; gap: 8px; }
   .queue-pill { display: inline-flex; align-items: center; justify-content: center; background: var(--amber-light); color: var(--amber-text); border: 1px solid rgba(186,117,23,.25); border-radius: 99px; padding: 2px 8px; font-size: 10px; font-weight: 600; letter-spacing: .03em; }
-  .cards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 12px; margin-bottom: 8px; }
-  @media (max-width: 600px) { .cards-grid { grid-template-columns: 1fr; } }
+  .cards-grid { display: grid; grid-template-columns: 1fr; gap: 12px; margin-bottom: 8px; }
+  .pos-group { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 10px; }
+  .cards-grid { align-items: stretch; }
+  .pos-group { height: 100%; display: flex; flex-direction: column; }
+  .pos-group-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .pos-group-title { font-size: 12px; font-weight: 700; color: var(--text-2); letter-spacing: .05em; text-transform: uppercase; }
+  .pos-group-count { font-size: 11px; color: var(--text-3); font-family: var(--mono); }
+  .pos-group-cards { display: grid; grid-template-columns: 1fr; gap: 10px; }
+  @media (min-width: 700px) and (max-width: 1199px) {
+    .cards-grid { grid-template-columns: 1fr 1fr; }
+  }
+  @media (min-width: 1200px) {
+    .cards-grid { grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); }
+    .pos-group-cards { grid-template-columns: 1fr; }
+  }
 
-  .cust-card { background: var(--surface); border-radius: var(--radius); border: 1px solid var(--border); overflow: hidden; transition: border-color .2s; }
-  .cust-card.waiting { border-color: var(--amber); }
-  .cust-card.active  { border-color: var(--teal); }
+  .cust-card { background: var(--surface); border-radius: var(--radius); border: 2px solid var(--border); overflow: hidden; transition: border-color .2s, box-shadow .2s; }
+  .cust-card.waiting { border-color: #7A3F00; background: #FFF9F0; box-shadow: inset 0 0 0 1px rgba(122,63,0,.18); }
+  .cust-card.active  { border-color: #084C3A; background: #F2FBF7; box-shadow: inset 0 0 0 1px rgba(8,76,58,.18); }
+  .cust-card.pos-color-1 .card-header { border-left: 6px solid #3366CC; }
+  .cust-card.pos-color-2 .card-header { border-left: 6px solid #6A3D9A; }
+  .cust-card.pos-color-3 .card-header { border-left: 6px solid #E67E22; }
+  .cust-card.pos-color-4 .card-header { border-left: 6px solid #16A085; }
+  .cust-card.pos-color-5 .card-header { border-left: 6px solid #C0392B; }
+  .cust-card.pos-color-6 .card-header { border-left: 6px solid #2E86C1; }
   .card-header { padding: 12px 14px 10px; border-bottom: 0.5px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
   .cust-name { font-size: 15px; font-weight: 600; color: var(--text); }
   .badge { font-size: 10px; font-weight: 600; padding: 3px 9px; border-radius: 99px; letter-spacing: .03em; }
-  .badge.waiting { background: var(--amber-light); color: var(--amber-text); }
-  .badge.active  { background: var(--teal-light);  color: var(--teal-text); }
+  .badge.waiting { background: #F8E1BF; color: #6A3A00; border: 1px solid rgba(106,58,0,.2); }
+  .badge.active  { background: #D5F2E8;  color: #054235; border: 1px solid rgba(5,66,53,.18); }
   .card-body { padding: 10px 14px; }
   .time-rows { display: flex; flex-direction: column; gap: 5px; margin-bottom: 10px; }
   .tr { display: flex; justify-content: space-between; align-items: center; }
@@ -186,6 +205,9 @@
     .table-toolbar { flex-direction: column; align-items: stretch; }
     .search-wrap { max-width: 100%; }
     .stats-bar { grid-template-columns: 1fr 1fr; }
+  }
+  @media (min-width: 1280px) {
+    .app { padding: 20px 26px; }
   }
 </style>
 </head>
@@ -324,6 +346,7 @@
               <th>Remarks</th>
               <th>Time In</th>
               <th>Left At</th>
+              <th>Action</th>
             </tr>
           </thead>
           <tbody id="leftBody"></tbody>
@@ -522,7 +545,7 @@ function checkIn() {
   refreshDashboard();
   startTicker();
   saveState();
-  showToast(`Checked in: ${id}`);
+  showToast(`Checked In: ${id}`);
 }
 
 // ── Start order ──
@@ -602,6 +625,7 @@ function updateCustomerPos(uid, pos) {
     return;
   }
   customers[uid].pos = pos;
+  renderCards();
   saveState();
 }
 
@@ -668,15 +692,33 @@ function renderCards() {
 
   empty.style.display = active.length === 0 ? 'block' : 'none';
   grid.style.display  = active.length === 0 ? 'none' : 'grid';
-  grid.innerHTML = active.map(([uid, c]) => `
-    <div class="cust-card ${c.status}" data-uid="${uid}">
+  if (active.length === 0) {
+    grid.innerHTML = '';
+    return;
+  }
+
+  const posOrder = [...posStations];
+  const grouped = new Map(posOrder.map(pos => [pos, []]));
+  active.forEach(([uid, c]) => {
+    const pos = c.pos || posStations[0] || 'POS 1';
+    if (!grouped.has(pos)) grouped.set(pos, []);
+    grouped.get(pos).push([uid, c]);
+  });
+
+  const posColorClass = (pos) => {
+    const idx = posOrder.indexOf(pos);
+    const safeIdx = idx >= 0 ? idx : 0;
+    return `pos-color-${(safeIdx % 6) + 1}`;
+  };
+
+  const cardHtml = (uid, c) => `
+    <div class="cust-card ${c.status} ${posColorClass(c.pos || posStations[0] || 'POS 1')}" data-uid="${uid}">
       <div class="card-header">
-        <span class="cust-name">${esc(c.displayId)}</span>
+        <input class="card-field" value="${esc(c.displayId)}" placeholder="Customer name or ID" style="max-width:190px;font-weight:600;" oninput="updateCustomerField('${uid}','displayId',this.value)">
         <span class="badge ${c.status}">${c.status === 'active' ? 'Order started' : 'Waiting'}</span>
       </div>
       <div class="card-body">
         <div class="card-fields">
-          <input class="card-field" value="${esc(c.displayId)}" placeholder="Customer name or ID" oninput="updateCustomerField('${uid}','displayId',this.value)">
           <input class="card-field" value="${esc(c.remarks || '')}" placeholder="Remarks" oninput="updateCustomerField('${uid}','remarks',this.value)">
         </div>
         <div class="time-rows">
@@ -715,7 +757,21 @@ function renderCards() {
           <button class="btn btn-remove" onclick="openModal('${uid}')" title="Mark left queue">↩ Left Queue</button>
         </div>
       </div>
-    </div>`).join('');
+    </div>`;
+
+  grid.innerHTML = [...grouped.entries()]
+    .filter(([, list]) => list.length > 0)
+    .map(([pos, list]) => `
+      <section class="pos-group">
+        <div class="pos-group-head">
+          <span class="pos-group-title">${esc(pos)}</span>
+          <span class="pos-group-count">${list.length} active</span>
+        </div>
+        <div class="pos-group-cards">
+          ${list.map(([uid, c]) => cardHtml(uid, c)).join('')}
+        </div>
+      </section>
+    `).join('');
 }
 
 // ── Live timer ticker ──
@@ -911,20 +967,37 @@ function exportExcel() {
   const wb = XLSX.utils.book_new();
   const headers = ['#','Customer ID','Group','POS','Remarks','Time In','Order Start','Time Out','Wait Time (mm:ss.ms)','Total Time (mm:ss.ms)'];
   const allPos = [...new Set(completedList.map(c => c.pos || 'No POS'))];
+  const completedTotalPeople = completedList.reduce((n, c) => n + (c.groupSize || 1), 0);
   allPos.forEach(posName => {
     const rows = [headers];
-    completedList.filter(c => (c.pos || 'No POS') === posName).forEach(c => {
+    const posRows = completedList.filter(c => (c.pos || 'No POS') === posName);
+    const posTotalPeople = posRows.reduce((n, c) => n + (c.groupSize || 1), 0);
+    posRows.forEach(c => {
       rows.push([c.rowNum, c.displayId, c.groupSize || 1, c.pos || '—', c.remarks || '', fmt(c.timeIn), fmt(c.startOrder), fmt(c.timeOut), fmtDiff(c.waitMs), fmtDiff(c.totalMs)]);
     });
+    rows.push([]);
+    rows.push(['','','','','','','','','Total People (Group)', posTotalPeople]);
     const ws = XLSX.utils.aoa_to_sheet(rows);
     ws['!cols'] = [6,22,8,12,20,16,16,16,20,20].map(w => ({ wch: w }));
     XLSX.utils.book_append_sheet(wb, ws, posName.slice(0, 31));
   });
   const leftRows = [['#','Customer ID','Group','Remarks','Time In','Left At']];
+  const leftTotalPeople = leftQueueList.reduce((n, c) => n + (c.groupSize || 1), 0);
   leftQueueList.forEach(c => leftRows.push([c.rowNum, c.displayId, c.groupSize || 1, c.remarks || '', fmt(c.timeIn), fmt(c.leftAt)]));
+  leftRows.push([]);
+  leftRows.push(['','','','Total People (Group)', '', leftTotalPeople]);
   const leftWs = XLSX.utils.aoa_to_sheet(leftRows);
   leftWs['!cols'] = [6,22,8,24,16,16].map(w => ({ wch: w }));
   XLSX.utils.book_append_sheet(wb, leftWs, 'Left Queue');
+  const summaryRows = [
+    ['Category', 'Total People (Group)'],
+    ['Completed', completedTotalPeople],
+    ['Left Queue', leftTotalPeople],
+    ['Grand Total', completedTotalPeople + leftTotalPeople]
+  ];
+  const summaryWs = XLSX.utils.aoa_to_sheet(summaryRows);
+  summaryWs['!cols'] = [20, 20].map(w => ({ wch: w }));
+  XLSX.utils.book_append_sheet(wb, summaryWs, 'Summary');
   const date = new Date().toISOString().slice(0, 10);
   XLSX.writeFile(wb, `customer_log_${date}.xlsx`);
   showToast(`Exported ${completedList.length + leftQueueList.length} records`);
@@ -991,6 +1064,22 @@ function updateLeftQueueRemarks(uid, value) {
   row.remarks = String(value || '').slice(0, 200);
   saveState();
 }
+function removeLeftQueueEntry(uid) {
+  const idx = leftQueueList.findIndex(c => c.uid === uid);
+  if (idx < 0) {
+    showToast('Left queue record not found');
+    renderLeftTable();
+    return;
+  }
+  const removed = leftQueueList[idx];
+  leftQueueList.splice(idx, 1);
+  leftQueueList.forEach((c, i) => { c.rowNum = i + 1; });
+  renderLeftTable();
+  updateCounts();
+  updateStats();
+  saveState();
+  showToast(`Removed left queue entry: ${removed.displayId}`);
+}
 function updateCompletedRemarks(uid, value) {
   const row = completedList.find(c => c.uid === uid);
   if (!row) {
@@ -1004,7 +1093,7 @@ function updateCompletedRemarks(uid, value) {
 function renderLeftTable() {
   const tbody = document.getElementById('leftBody');
   if (!leftQueueList.length) {
-    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:32px;color:var(--text-3);font-family:var(--sans);">No customers have left the queue.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:32px;color:var(--text-3);font-family:var(--sans);">No customers have left the queue.</td></tr>`;
     return;
   }
   tbody.innerHTML = leftQueueList.map(c => `
@@ -1021,6 +1110,7 @@ function renderLeftTable() {
       </td>
       <td class="mono">${fmt(c.timeIn)}</td>
       <td class="mono">${fmt(c.leftAt)}</td>
+      <td><button class="btn btn-remove" onclick="removeLeftQueueEntry('${c.uid}')" title="Remove incorrect entry">🗑 Remove</button></td>
     </tr>`).join('');
 }
 
@@ -1082,6 +1172,7 @@ function resetAllData() {
 // ── Init ──
 loadState();
 applyFilterSort();
+renderCards();
 renderTable();
 renderLeftTable();
 renderPosButtons();
