@@ -1,0 +1,1033 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Customer Time Tracker</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root {
+    --teal:       #1D9E75;
+    --teal-dark:  #0F6E56;
+    --teal-light: #E1F5EE;
+    --teal-text:  #085041;
+    --amber:      #BA7517;
+    --amber-light:#FAEEDA;
+    --amber-text: #854F0B;
+    --red:        #A32D2D;
+    --red-light:  #FCEBEB;
+    --red-text:   #791F1F;
+    --bg:         #F7F7F5;
+    --surface:    #FFFFFF;
+    --border:     rgba(0,0,0,0.1);
+    --border-md:  rgba(0,0,0,0.18);
+    --text:       #1a1a18;
+    --text-2:     #5F5E5A;
+    --text-3:     #888780;
+    --radius:     12px;
+    --radius-sm:  8px;
+    --mono:       'Courier New', monospace;
+    --sans:       -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html { font-size: 16px; }
+  body { font-family: var(--sans); background: var(--bg); color: var(--text); min-height: 100vh; }
+
+  /* ── Layout ── */
+  .app { max-width: 860px; margin: 0 auto; padding: 16px; }
+  header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
+  .logo { display: flex; align-items: center; gap: 10px; }
+  .logo-icon { width: 36px; height: 36px; background: var(--teal); border-radius: 9px; display: flex; align-items: center; justify-content: center; }
+  .logo-icon svg { width: 20px; height: 20px; fill: none; stroke: white; stroke-width: 2; stroke-linecap: round; }
+  .logo-text h1 { font-size: 17px; font-weight: 600; color: var(--text); }
+  .logo-text p  { font-size: 12px; color: var(--text-2); margin-top: 1px; }
+
+  /* ── Tabs ── */
+  .tabs { display: flex; background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius); overflow: hidden; margin-bottom: 20px; }
+  .tab { flex: 1; padding: 10px 8px; text-align: center; font-size: 13px; font-weight: 500; color: var(--text-2); cursor: pointer; border: none; background: transparent; transition: all .15s; position: relative; }
+  .tab.active { color: var(--teal-dark); background: var(--teal-light); }
+  .tab-count { display: inline-flex; align-items: center; justify-content: center; background: var(--teal); color: white; font-size: 10px; font-weight: 600; border-radius: 99px; min-width: 16px; height: 16px; padding: 0 4px; margin-left: 5px; vertical-align: middle; }
+  .tab-count.amber { background: var(--amber); }
+
+  /* ── Panel ── */
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  /* ── Check-in form ── */
+  .checkin-card { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius); padding: 16px; margin-bottom: 16px; }
+  .checkin-card label { font-size: 12px; font-weight: 500; color: var(--text-2); display: block; margin-bottom: 6px; letter-spacing: .04em; }
+  .checkin-row { display: flex; gap: 8px; }
+  .checkin-row input { flex: 1; min-width: 0; padding: 10px 12px; font-size: 15px; font-family: var(--sans); border: 0.5px solid var(--border-md); border-radius: var(--radius-sm); background: var(--bg); color: var(--text); outline: none; }
+  .checkin-row input:focus { border-color: var(--teal); box-shadow: 0 0 0 3px rgba(29,158,117,.12); }
+  .checkin-meta { margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .small-input { width: 120px; padding: 8px 10px; font-size: 13px; border: 0.5px solid var(--border-md); border-radius: var(--radius-sm); background: var(--bg); }
+  .pos-wrap { margin-top: 10px; border-top: 0.5px solid var(--border); padding-top: 10px; }
+  .pos-buttons { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .pos-btn { padding: 6px 10px; border: 0.5px solid var(--border-md); border-radius: 999px; background: var(--surface); font-size: 12px; cursor: pointer; }
+  .pos-btn.active { background: var(--teal-light); border-color: var(--teal); color: var(--teal-dark); font-weight: 600; }
+  .btn { padding: 10px 16px; border-radius: var(--radius-sm); border: none; font-family: var(--sans); font-size: 14px; font-weight: 500; cursor: pointer; transition: all .15s; white-space: nowrap; }
+  .btn-primary { background: var(--teal); color: white; }
+  .btn-primary:hover { background: var(--teal-dark); }
+  .btn-primary:active { transform: scale(.97); }
+  .btn-ghost { background: transparent; color: var(--text-2); border: 0.5px solid var(--border-md); }
+  .btn-ghost:hover { background: var(--bg); }
+  .btn-export { background: var(--teal); color: white; font-size: 13px; padding: 9px 14px; }
+  .btn-export:hover { background: var(--teal-dark); }
+  .btn-export:disabled { background: var(--border); color: var(--text-3); cursor: not-allowed; transform: none; }
+  .btn-danger { background: var(--red); color: white; font-size: 13px; padding: 9px 14px; }
+  .btn-danger:hover { background: var(--red-text); }
+
+  /* ── Active customer cards ── */
+  .section-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+  .section-title { font-size: 12px; font-weight: 600; color: var(--text-2); letter-spacing: .06em; text-transform: uppercase; }
+  .cards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 12px; margin-bottom: 8px; }
+  @media (max-width: 600px) { .cards-grid { grid-template-columns: 1fr; } }
+
+  .cust-card { background: var(--surface); border-radius: var(--radius); border: 1px solid var(--border); overflow: hidden; transition: border-color .2s; }
+  .cust-card.waiting { border-color: var(--amber); }
+  .cust-card.active  { border-color: var(--teal); }
+  .card-header { padding: 12px 14px 10px; border-bottom: 0.5px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+  .cust-name { font-size: 15px; font-weight: 600; color: var(--text); }
+  .badge { font-size: 10px; font-weight: 600; padding: 3px 9px; border-radius: 99px; letter-spacing: .03em; }
+  .badge.waiting { background: var(--amber-light); color: var(--amber-text); }
+  .badge.active  { background: var(--teal-light);  color: var(--teal-text); }
+  .card-body { padding: 10px 14px; }
+  .time-rows { display: flex; flex-direction: column; gap: 5px; margin-bottom: 10px; }
+  .tr { display: flex; justify-content: space-between; align-items: center; }
+  .tl { font-size: 11px; color: var(--text-3); }
+  .tv { font-family: var(--mono); font-size: 11px; color: var(--text); }
+  .tv.live  { color: var(--teal); font-weight: bold; }
+  .tv.wait  { color: var(--amber); font-weight: bold; }
+  .tv.empty { color: var(--text-3); }
+  .card-actions { display: flex; gap: 6px; }
+  .card-actions.wrap { flex-wrap: wrap; }
+  .card-actions .btn { flex: 1; font-size: 12px; padding: 8px 4px; }
+  .btn-start { background: var(--teal-light); color: var(--teal-dark); border: 1px solid rgba(15,110,86,.2); }
+  .btn-start:hover { background: var(--teal); color: white; }
+  .btn-start:disabled { opacity: .35; cursor: not-allowed; }
+  .btn-checkout { background: var(--red-light); color: var(--red-text); border: 1px solid rgba(163,45,45,.15); }
+  .btn-checkout:hover { background: var(--red); color: white; }
+  .btn-remove { background: transparent; color: var(--text-3); border: 0.5px solid var(--border-md); }
+  .btn-remove:hover { background: var(--red-light); color: var(--red-text); border-color: rgba(163,45,45,.25); }
+  .card-fields { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
+  .card-field { width: 100%; padding: 7px 9px; border-radius: var(--radius-sm); border: 0.5px solid var(--border-md); font-size: 12px; background: var(--surface); }
+
+
+  /* ── Confirm modal ── */
+  .modal-backdrop { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.35); z-index: 100; align-items: center; justify-content: center; padding: 16px; }
+  .modal-backdrop.open { display: flex; }
+  .modal { background: var(--surface); border-radius: var(--radius); padding: 24px; max-width: 340px; width: 100%; box-shadow: 0 8px 32px rgba(0,0,0,.12); }
+  .modal-icon { width: 40px; height: 40px; background: var(--red-light); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-bottom: 14px; }
+  .modal-icon svg { width: 20px; height: 20px; stroke: var(--red); fill: none; stroke-width: 2; stroke-linecap: round; }
+  .modal h2 { font-size: 16px; font-weight: 600; color: var(--text); margin-bottom: 8px; }
+  .modal p  { font-size: 13px; color: var(--text-2); line-height: 1.5; margin-bottom: 20px; }
+  .modal p strong { color: var(--text); font-weight: 600; }
+  .modal-actions { display: flex; gap: 8px; justify-content: flex-end; }
+  .modal-actions .btn { padding: 9px 18px; font-size: 13px; }
+  .btn-confirm-remove { background: var(--red); color: white; }
+  .btn-confirm-remove:hover { background: var(--red-text); }
+
+  /* ── Empty states ── */
+  .empty { text-align: center; padding: 32px 16px; color: var(--text-3); font-size: 13px; background: var(--surface); border-radius: var(--radius); border: 0.5px dashed var(--border-md); }
+  .empty svg { width: 32px; height: 32px; stroke: var(--border-md); fill: none; stroke-width: 1.5; margin-bottom: 8px; display: block; margin: 0 auto 10px; }
+
+  /* ── Completed table ── */
+  .table-toolbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+  .search-wrap { position: relative; flex: 1; min-width: 160px; max-width: 280px; }
+  .search-wrap svg { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); width: 14px; height: 14px; stroke: var(--text-3); fill: none; stroke-width: 2; pointer-events: none; }
+  .search-wrap input { width: 100%; padding: 8px 10px 8px 30px; font-size: 13px; font-family: var(--sans); border: 0.5px solid var(--border-md); border-radius: var(--radius-sm); background: var(--surface); color: var(--text); outline: none; }
+  .search-wrap input:focus { border-color: var(--teal); }
+
+  .table-card { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+  .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  table { width: 100%; border-collapse: collapse; min-width: 560px; }
+  thead th { padding: 10px 12px; text-align: left; font-size: 11px; font-weight: 600; color: var(--text-2); letter-spacing: .05em; text-transform: uppercase; background: var(--bg); border-bottom: 0.5px solid var(--border); white-space: nowrap; cursor: pointer; user-select: none; }
+  thead th:hover { color: var(--teal-dark); }
+  thead th .sort-arrow { margin-left: 4px; opacity: .4; font-size: 10px; }
+  thead th.sorted .sort-arrow { opacity: 1; color: var(--teal); }
+  tbody tr { border-bottom: 0.5px solid var(--border); transition: background .1s; }
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:hover { background: #fafaf8; }
+  tbody td { padding: 10px 12px; font-size: 12px; color: var(--text); white-space: nowrap; }
+  tbody td.mono { font-family: var(--mono); font-size: 11px; }
+  tbody td.id-cell { font-weight: 600; max-width: 120px; overflow: hidden; text-overflow: ellipsis; }
+  .row-num { color: var(--text-3); font-size: 11px; font-family: var(--mono); }
+
+  /* ── Pagination ── */
+  .pagination { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; border-top: 0.5px solid var(--border); flex-wrap: wrap; gap: 10px; }
+  .page-info { font-size: 12px; color: var(--text-2); }
+  .page-controls { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+  .page-btn { min-width: 34px; height: 34px; padding: 0 8px; border: 0.5px solid var(--border-md); border-radius: var(--radius-sm); background: var(--surface); color: var(--text-2); font-size: 13px; font-family: var(--sans); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all .12s; }
+  .page-btn:hover:not(:disabled) { background: var(--teal-light); border-color: var(--teal); color: var(--teal-dark); }
+  .page-btn.active { background: var(--teal); border-color: var(--teal); color: white; font-weight: 600; }
+  .page-btn:disabled { opacity: .35; cursor: not-allowed; }
+  .page-btn.ellipsis { cursor: default; border: none; background: transparent; }
+  .rows-select { padding: 6px 10px; font-size: 12px; font-family: var(--sans); border: 0.5px solid var(--border-md); border-radius: var(--radius-sm); background: var(--surface); color: var(--text); outline: none; cursor: pointer; }
+  .rows-select:focus { border-color: var(--teal); }
+
+  /* ── Stats bar ── */
+  .stats-bar { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 10px; margin-bottom: 16px; }
+  .stat-card { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius-sm); padding: 12px 14px; }
+  .stat-label { font-size: 11px; color: var(--text-3); margin-bottom: 4px; }
+  .stat-value { font-size: 20px; font-weight: 600; color: var(--text); }
+  .stat-value.teal   { color: var(--teal); }
+  .stat-value.amber  { color: var(--amber); }
+
+  /* ── Toast ── */
+  .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(80px); background: #1a1a18; color: white; font-size: 13px; padding: 10px 18px; border-radius: 99px; opacity: 0; transition: all .25s; pointer-events: none; z-index: 999; white-space: nowrap; }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  @media (max-width: 480px) {
+    .app { padding: 12px; }
+    header { margin-bottom: 14px; }
+    .tabs .tab { font-size: 12px; padding: 9px 6px; }
+    .table-toolbar { flex-direction: column; align-items: stretch; }
+    .search-wrap { max-width: 100%; }
+    .stats-bar { grid-template-columns: 1fr 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- Header -->
+  <header>
+    <div class="logo">
+      <div class="logo-icon">
+        <svg viewBox="0 0 20 20"><circle cx="10" cy="10" r="7"/><polyline points="10,5 10,10 13,13"/></svg>
+      </div>
+      <div class="logo-text">
+        <h1>Customer Time Tracker</h1>
+        <p>Track multiple customers simultaneously</p>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <button class="btn btn-export" id="exportBtn" onclick="exportExcel()">&#8595; Export Excel</button>
+      <button class="btn btn-danger" onclick="openResetModal()">Reset All Data</button>
+    </div>
+  </header>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab active" data-tab="active-panel" onclick="switchTab(this)">
+      Active <span class="tab-count amber" id="activeCount">0</span>
+    </button>
+    <button class="tab" data-tab="completed-panel" onclick="switchTab(this)">
+      Completed <span class="tab-count" id="completedCount">0</span>
+    </button>
+    <button class="tab" data-tab="left-panel" onclick="switchTab(this)">
+      Left Queue <span class="tab-count" id="leftCount">0</span>
+    </button>
+  </div>
+
+  <!-- ── ACTIVE PANEL ── -->
+  <div class="panel active" id="active-panel">
+
+    <!-- Stats -->
+    <div class="stats-bar">
+      <div class="stat-card"><div class="stat-label">People checked in today</div><div class="stat-value teal" id="statTotal">0</div></div>
+      <div class="stat-card"><div class="stat-label">Currently waiting</div><div class="stat-value amber" id="statWaiting">0</div></div>
+      <div class="stat-card"><div class="stat-label">Being served</div><div class="stat-value teal" id="statServing">0</div></div>
+      <div class="stat-card"><div class="stat-label">Completed</div><div class="stat-value" id="statDone">0</div></div>
+    </div>
+
+    <!-- Check-in form -->
+    <div class="checkin-card">
+      <label>CUSTOMER ID / NAME</label>
+      <div class="checkin-row">
+        <input type="text" id="custInput" placeholder="e.g. John Doe, #1042..." autocomplete="off"
+               onkeydown="if(event.key==='Enter')checkIn()">
+        <button class="btn btn-primary" onclick="checkIn()">Check In</button>
+      </div>
+      <div class="checkin-meta">
+        <label style="margin:0;">Group size</label>
+        <input class="small-input" type="number" id="groupInput" min="1" value="1">
+      </div>
+      <div class="pos-wrap">
+        <label style="margin-bottom:4px;">POS (Point of Sale)</label>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          <input class="small-input" type="text" id="newPosInput" placeholder="POS name">
+          <button class="btn btn-ghost" onclick="addPosStation()">+ Add POS</button>
+          <button class="btn btn-ghost" onclick="removeSelectedPos()">− Remove Selected POS</button>
+        </div>
+        <div id="posButtons" class="pos-buttons"></div>
+      </div>
+    </div>
+
+    <!-- Cards -->
+    <div class="section-head">
+      <span class="section-title">Active Customers</span>
+    </div>
+    <div id="cardsGrid" class="cards-grid"></div>
+    <div id="emptyActive" class="empty">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+      No active customers — check someone in above
+    </div>
+  </div>
+
+  <!-- ── COMPLETED PANEL ── -->
+  <div class="panel" id="completed-panel">
+
+    <div class="table-toolbar">
+      <div class="search-wrap">
+        <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><line x1="16.5" y1="16.5" x2="21" y2="21"/></svg>
+        <input type="text" id="searchInput" placeholder="Search by ID..." oninput="onSearch()">
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <label style="font-size:12px;color:var(--text-2);">Rows per page</label>
+        <select class="rows-select" id="rowsPerPage" onchange="onRowsChange()">
+          <option value="10">10</option>
+          <option value="25" selected>25</option>
+          <option value="50">50</option>
+          <option value="100">100</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="table-card">
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th onclick="sortBy('row')">#<span class="sort-arrow" id="sort-row">↕</span></th>
+              <th onclick="sortBy('id')">Customer ID<span class="sort-arrow" id="sort-id">↕</span></th>
+              <th onclick="sortBy('groupSize')">Group<span class="sort-arrow" id="sort-groupSize">↕</span></th>
+              <th onclick="sortBy('pos')">POS<span class="sort-arrow" id="sort-pos">↕</span></th>
+              <th onclick="sortBy('remarks')">Remarks<span class="sort-arrow" id="sort-remarks">↕</span></th>
+              <th onclick="sortBy('timeIn')">Time In<span class="sort-arrow" id="sort-timeIn">↕</span></th>
+              <th onclick="sortBy('startOrder')">Order Start<span class="sort-arrow" id="sort-startOrder">↕</span></th>
+              <th onclick="sortBy('timeOut')">Time Out<span class="sort-arrow" id="sort-timeOut">↕</span></th>
+              <th onclick="sortBy('waitMs')">Wait Time<span class="sort-arrow" id="sort-waitMs">↕</span></th>
+              <th onclick="sortBy('totalMs')">Total Time<span class="sort-arrow" id="sort-totalMs">↕</span></th>
+            </tr>
+          </thead>
+          <tbody id="completedBody"></tbody>
+        </table>
+      </div>
+      <div class="pagination" id="paginationBar"></div>
+    </div>
+  </div>
+
+  <!-- ── LEFT QUEUE PANEL ── -->
+  <div class="panel" id="left-panel">
+    <div class="table-card">
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Customer ID</th>
+              <th>Group</th>
+              <th>Remarks</th>
+              <th>Time In</th>
+              <th>Left At</th>
+            </tr>
+          </thead>
+          <tbody id="leftBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+
+</div><!-- end .app -->
+
+<!-- Reset Data Modal -->
+<div class="modal-backdrop" id="resetModal">
+  <div class="modal">
+    <div class="modal-icon">
+      <svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+    </div>
+    <h2>Reset all data?</h2>
+    <p>This will permanently clear active, completed, and left queue records, including POS setup. Continue?</p>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeResetModal()">Cancel</button>
+      <button class="btn btn-confirm-remove" onclick="resetAllData()">Reset</button>
+    </div>
+  </div>
+</div>
+
+<!-- Confirm Remove Modal -->
+<div class="modal-backdrop" id="confirmModal">
+  <div class="modal">
+    <div class="modal-icon">
+      <svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+    </div>
+    <h2>Left Queue?</h2>
+    <p>Move <strong id="modalCustName"></strong> to Left Queue? This will log them as having left the line.</p>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-confirm-remove" onclick="confirmRemove()">Left Queue</button>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+// ── State ──
+const STORAGE_KEY = 'customer_time_tracker_v2';
+const customers = {};
+let completedList = [];
+let leftQueueList = [];
+let filteredList  = [];
+let currentPage   = 1;
+let rowsPerPage   = 25;
+let sortCol       = 'row';
+let sortDir       = 'desc';
+let searchQuery   = '';
+let pendingRemoveUid = null;
+let tickerRunning = false;
+let posStations = ['POS 1'];
+let selectedPos = 'POS 1';
+let tempCounter = 1;
+
+// ── Time helpers ──
+function fmt(d) {
+  if (!d) return '—';
+  const h = String(d.getHours()).padStart(2,'0');
+  const m = String(d.getMinutes()).padStart(2,'0');
+  const s = String(d.getSeconds()).padStart(2,'0');
+  const ms = String(d.getMilliseconds()).padStart(3,'0');
+  return `${h}:${m}:${s}.${ms}`;
+}
+function fmtDiff(ms) {
+  if (ms == null || ms < 0) return '—';
+  const m  = Math.floor(ms / 60000);
+  const s  = Math.floor((ms % 60000) / 1000);
+  const mi = ms % 1000;
+  return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}.${String(mi).padStart(3,'0')}`;
+}
+function esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function tempId() { return `TEMP-${String(tempCounter++).padStart(4, '0')}`; }
+function norm(v) { return String(v || '').trim().toLowerCase(); }
+function isPositiveInt(n) { return Number.isInteger(n) && n > 0; }
+function todayPeopleTotal() {
+  const active = Object.values(customers).reduce((n, c) => n + (c.groupSize || 1), 0);
+  const done = completedList.reduce((n, c) => n + (c.groupSize || 1), 0);
+  const left = leftQueueList.reduce((n, c) => n + (c.groupSize || 1), 0);
+  return active + done + left;
+}
+function safeDate(v) { return v ? new Date(v) : null; }
+function ensurePosAssignments() {
+  const fallbackPos = selectedPos || posStations[0] || 'POS 1';
+  Object.values(customers).forEach(c => {
+    if (!c.pos) c.pos = fallbackPos;
+  });
+  completedList.forEach(c => {
+    if (!c.pos) c.pos = fallbackPos;
+  });
+}
+function saveState() {
+  const payload = {
+    customers: Object.fromEntries(Object.entries(customers).map(([uid, c]) => [uid, {
+      ...c,
+      timeIn: c.timeIn?.toISOString?.() || null,
+      startOrder: c.startOrder?.toISOString?.() || null,
+      timeOut: c.timeOut?.toISOString?.() || null
+    }])),
+    completedList: completedList.map(c => ({
+      ...c,
+      timeIn: c.timeIn?.toISOString?.() || null,
+      startOrder: c.startOrder?.toISOString?.() || null,
+      timeOut: c.timeOut?.toISOString?.() || null
+    })),
+    leftQueueList: leftQueueList.map(c => ({
+      ...c,
+      timeIn: c.timeIn?.toISOString?.() || null,
+      leftAt: c.leftAt?.toISOString?.() || null
+    })),
+    posStations,
+    selectedPos,
+    tempCounter
+  };
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+}
+function loadState() {
+  const raw = localStorage.getItem(STORAGE_KEY);
+  if (!raw) return;
+  try {
+    const parsed = JSON.parse(raw);
+    Object.keys(customers).forEach(k => delete customers[k]);
+    Object.entries(parsed.customers || {}).forEach(([uid, c]) => {
+      customers[uid] = {
+        ...c,
+        timeIn: safeDate(c.timeIn),
+        startOrder: safeDate(c.startOrder),
+        timeOut: safeDate(c.timeOut)
+      };
+    });
+    completedList = (parsed.completedList || []).map(c => ({
+      ...c,
+      timeIn: safeDate(c.timeIn),
+      startOrder: safeDate(c.startOrder),
+      timeOut: safeDate(c.timeOut)
+    }));
+    leftQueueList = (parsed.leftQueueList || []).map(c => ({
+      ...c,
+      timeIn: safeDate(c.timeIn),
+      leftAt: safeDate(c.leftAt)
+    }));
+    posStations = Array.isArray(parsed.posStations) && parsed.posStations.length ? parsed.posStations : ['POS 1'];
+    selectedPos = posStations.includes(parsed.selectedPos) ? parsed.selectedPos : posStations[0];
+    tempCounter = Number.isInteger(parsed.tempCounter) ? parsed.tempCounter : 1;
+    ensurePosAssignments();
+  } catch (e) {
+    console.warn('Failed to load state', e);
+  }
+}
+
+// ── Check-in ──
+function checkIn() {
+  const input = document.getElementById('custInput');
+  const groupInput = document.getElementById('groupInput');
+  const entered = input.value.trim();
+  const id = entered || tempId();
+  const parsedGroup = Number.parseInt(groupInput.value, 10);
+  if (!isPositiveInt(parsedGroup)) {
+    showToast('Group size must be a whole number greater than 0');
+    groupInput.focus();
+    return;
+  }
+  const groupSize = parsedGroup;
+  if (!selectedPos || !posStations.includes(selectedPos)) {
+    showToast('Please select a valid POS station');
+    return;
+  }
+
+  const existingKey = Object.keys(customers).find(k =>
+    norm(customers[k].displayId) === norm(id) && customers[k].status !== 'done');
+  if (existingKey) {
+    showToast(`"${id}" is already active`);
+    input.value = '';
+    return;
+  }
+
+  const uid = 'c_' + Date.now() + '_' + Math.random().toString(36).slice(2,6);
+  customers[uid] = { displayId: id, remarks: '', groupSize, pos: selectedPos || posStations[0] || 'POS 1', timeIn: new Date(), startOrder: null, timeOut: null, status: 'waiting' };
+  input.value = '';
+  groupInput.value = '1';
+  input.focus();
+  renderCards();
+  updateStats();
+  updateCounts();
+  renderLeftTable();
+  startTicker();
+  saveState();
+  showToast(`Checked in: ${id}`);
+}
+
+// ── Start order ──
+function startOrder(uid) {
+  if (!customers[uid]) { showToast('Customer not found'); return; }
+  if (customers[uid].status === 'done') { showToast('Customer already checked out'); return; }
+  if (customers[uid].startOrder) { showToast('Order already started for this customer'); return; }
+  if (!selectedPos || !posStations.includes(selectedPos)) {
+    showToast('Please select a valid POS station');
+    return;
+  }
+  customers[uid].startOrder = new Date();
+  customers[uid].status = 'active';
+  customers[uid].pos = selectedPos;
+  renderCards();
+  updateStats();
+  saveState();
+}
+function undoStartOrder(uid) {
+  if (!customers[uid]) { showToast('Customer not found'); return; }
+  if (!customers[uid].startOrder) { showToast('Order has not started yet'); return; }
+  customers[uid].startOrder = null;
+  customers[uid].status = 'waiting';
+  if (!customers[uid].pos) customers[uid].pos = selectedPos || posStations[0] || 'POS 1';
+  renderCards();
+  updateStats();
+  saveState();
+}
+function updateCustomerField(uid, key, value) {
+  if (!customers[uid]) { showToast('Customer not found'); return; }
+  if (!['displayId', 'remarks'].includes(key)) return;
+
+  if (key === 'displayId') {
+    const next = String(value || '').trim();
+    if (!next) {
+      showToast('Customer ID/name cannot be empty');
+      renderCards();
+      return;
+    }
+    const duplicate = Object.entries(customers).some(([otherUid, other]) =>
+      otherUid !== uid && other.status !== 'done' && norm(other.displayId) === norm(next)
+    );
+    if (duplicate) {
+      showToast(`"${next}" is already active`);
+      renderCards();
+      return;
+    }
+    customers[uid].displayId = next;
+    saveState();
+    return;
+  }
+
+  customers[uid].remarks = String(value || '').slice(0, 200);
+  saveState();
+}
+function updateGroupSize(uid, value) {
+  if (!customers[uid]) { showToast('Customer not found'); return; }
+  const parsed = Number.parseInt(value, 10);
+  if (!isPositiveInt(parsed)) {
+    showToast('Group size must be a whole number greater than 0');
+    customers[uid].groupSize = 1;
+    renderCards();
+    updateStats();
+    saveState();
+    return;
+  }
+  customers[uid].groupSize = parsed;
+  updateStats();
+  saveState();
+}
+
+// ── Check-out ──
+function checkOut(uid) {
+  if (!customers[uid]) { showToast('Customer not found'); return; }
+  const c = customers[uid];
+  if (c.status === 'done') { showToast('Customer already checked out'); return; }
+  if (!c.startOrder) { showToast('Cannot check out before starting order'); return; }
+  if (!c.pos) {
+    c.pos = selectedPos || posStations[0] || 'POS 1';
+  }
+  c.timeOut = new Date();
+  c.status  = 'done';
+  c.waitMs  = c.startOrder ? (c.startOrder - c.timeIn) : null;
+  c.totalMs = c.timeOut - c.timeIn;
+  c.rowNum  = completedList.length + 1;
+
+  completedList.push({ ...c, uid });
+  applyFilterSort();
+  renderCards();
+  renderTable();
+  updateStats();
+  updateCounts();
+  saveState();
+  showToast(`Checked out: ${c.displayId}`);
+}
+
+// ── Remove (left queue) ──
+function openModal(uid) {
+  if (!customers[uid]) { showToast('Customer not found'); return; }
+  if (customers[uid].status === 'done') { showToast('Cannot move checked out customer to left queue'); return; }
+  pendingRemoveUid = uid;
+  document.getElementById('modalCustName').textContent = customers[uid].displayId;
+  document.getElementById('confirmModal').classList.add('open');
+}
+function closeModal() {
+  document.getElementById('confirmModal').classList.remove('open');
+  pendingRemoveUid = null;
+}
+function confirmRemove() {
+  const uid = pendingRemoveUid;
+  closeModal();
+  if (!uid || !customers[uid]) { showToast('Customer was already removed'); return; }
+  const c = customers[uid];
+  const name = c.displayId;
+  leftQueueList.push({
+    uid,
+    rowNum: leftQueueList.length + 1,
+    displayId: c.displayId,
+    remarks: c.remarks || '',
+    groupSize: c.groupSize || 1,
+    timeIn: c.timeIn,
+    leftAt: new Date()
+  });
+  delete customers[uid];
+  renderCards();
+  renderLeftTable();
+  updateStats();
+  updateCounts();
+  saveState();
+  showToast(`Left queue: ${name}`);
+}
+function renderCards() {
+  const grid  = document.getElementById('cardsGrid');
+  const empty = document.getElementById('emptyActive');
+  const active = Object.entries(customers).filter(([,c]) => c.status !== 'done');
+
+  empty.style.display = active.length === 0 ? 'block' : 'none';
+  grid.style.display  = active.length === 0 ? 'none' : 'grid';
+  grid.innerHTML = active.map(([uid, c]) => `
+    <div class="cust-card ${c.status}" data-uid="${uid}">
+      <div class="card-header">
+        <span class="cust-name">${esc(c.displayId)}</span>
+        <span class="badge ${c.status}">${c.status === 'active' ? 'Order started' : 'Waiting'}</span>
+      </div>
+      <div class="card-body">
+        <div class="card-fields">
+          <input class="card-field" value="${esc(c.displayId)}" placeholder="Customer name or ID" oninput="updateCustomerField('${uid}','displayId',this.value)">
+          <input class="card-field" value="${esc(c.remarks || '')}" placeholder="Remarks" oninput="updateCustomerField('${uid}','remarks',this.value)">
+        </div>
+        <div class="time-rows">
+          <div class="tr"><span class="tl">Time in</span><span class="tv">${fmt(c.timeIn)}</span></div>
+          <div class="tr"><span class="tl">Order start</span><span class="tv ${c.startOrder ? '' : 'empty'}" id="os_${uid}">${c.startOrder ? fmt(c.startOrder) : '—'}</span></div>
+          <div class="tr"><span class="tl">Elapsed</span><span class="tv live" id="el_${uid}">00:00.000</span></div>
+          <div class="tr"><span class="tl">Wait</span><span class="tv wait" id="wt_${uid}">—</span></div>
+          <div class="tr">
+            <span class="tl">Group</span>
+            <span class="tv">
+              <input
+                type="number"
+                min="1"
+                value="${c.groupSize || 1}"
+                class="small-input"
+                style="width:70px;padding:4px 6px;background:var(--surface);"
+                oninput="updateGroupSize('${uid}', this.value)">
+            </span>
+          </div>
+          <div class="tr"><span class="tl">POS</span><span class="tv">${esc(c.pos || '—')}</span></div>
+        </div>
+        <div class="card-actions wrap">
+          <button class="btn btn-start" ${c.startOrder ? 'disabled' : ''} onclick="startOrder('${uid}')">Start Order</button>
+          <button class="btn btn-ghost" ${c.startOrder ? '' : 'disabled'} onclick="undoStartOrder('${uid}')">Undo Start</button>
+          <button class="btn btn-checkout" onclick="checkOut('${uid}')">Check Out</button>
+          <button class="btn btn-remove" onclick="openModal('${uid}')" title="Mark left queue">✕ Left Queue</button>
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+// ── Live timer ticker ──
+function startTicker() {
+  if (tickerRunning) return;
+  tickerRunning = true;
+  (function tick() {
+    const active = Object.values(customers).filter(c => c.status !== 'done');
+    if (active.length === 0) { tickerRunning = false; return; }
+    const n = Date.now();
+    active.forEach(c => {
+      const uid = Object.keys(customers).find(k => customers[k] === c);
+      const elEl = document.getElementById('el_' + uid);
+      const wtEl = document.getElementById('wt_' + uid);
+      if (elEl) elEl.textContent = fmtDiff(n - c.timeIn.getTime());
+      if (wtEl) {
+        if (c.startOrder) wtEl.textContent = fmtDiff(c.startOrder - c.timeIn);
+        else wtEl.textContent = fmtDiff(n - c.timeIn.getTime()) + '…';
+      }
+    });
+    requestAnimationFrame(tick);
+  })();
+}
+
+// ── Stats ──
+function updateStats() {
+  const vals = Object.values(customers);
+  document.getElementById('statTotal').textContent   = todayPeopleTotal();
+  document.getElementById('statWaiting').textContent = vals.filter(c => c.status === 'waiting').length;
+  document.getElementById('statServing').textContent = vals.filter(c => c.status === 'active').length;
+  document.getElementById('statDone').textContent    = completedList.length;
+}
+
+function updateCounts() {
+  const active = Object.values(customers).filter(c => c.status !== 'done').length;
+  document.getElementById('activeCount').textContent    = active;
+  document.getElementById('completedCount').textContent = completedList.length;
+  document.getElementById('leftCount').textContent      = leftQueueList.length;
+}
+
+// ── Table: search / sort / paginate ──
+function onSearch() {
+  searchQuery = document.getElementById('searchInput').value.trim().toLowerCase();
+  currentPage = 1;
+  applyFilterSort();
+  renderTable();
+}
+
+function onRowsChange() {
+  rowsPerPage = parseInt(document.getElementById('rowsPerPage').value);
+  currentPage = 1;
+  renderTable();
+}
+
+function sortBy(col) {
+  if (sortCol === col) sortDir = sortDir === 'asc' ? 'desc' : 'asc';
+  else { sortCol = col; sortDir = col === 'row' ? 'desc' : 'asc'; }
+  applyFilterSort();
+  renderTable();
+}
+
+function applyFilterSort() {
+  let list = [...completedList];
+  if (searchQuery) list = list.filter(c => c.displayId.toLowerCase().includes(searchQuery));
+
+  list.sort((a, b) => {
+    let av = a[sortCol], bv = b[sortCol];
+    if (sortCol === 'id') { av = a.displayId.toLowerCase(); bv = b.displayId.toLowerCase(); }
+    if (sortCol === 'groupSize') { av = a.groupSize || 1; bv = b.groupSize || 1; }
+    if (sortCol === 'remarks') { av = (a.remarks || '').toLowerCase(); bv = (b.remarks || '').toLowerCase(); }
+    if (sortCol === 'pos') { av = (a.pos || '').toLowerCase(); bv = (b.pos || '').toLowerCase(); }
+    if (av == null) return 1;
+    if (bv == null) return -1;
+    return sortDir === 'asc' ? (av > bv ? 1 : -1) : (av < bv ? 1 : -1);
+  });
+
+  filteredList = list;
+  // Update sort arrows
+  ['row','id','groupSize','pos','remarks','timeIn','startOrder','timeOut','waitMs','totalMs'].forEach(c => {
+    const el = document.getElementById('sort-' + c);
+    const th = el?.closest('th');
+    if (!el) return;
+    if (c === sortCol) { el.textContent = sortDir === 'asc' ? '↑' : '↓'; th.classList.add('sorted'); }
+    else               { el.textContent = '↕'; th.classList.remove('sorted'); }
+  });
+}
+
+function renderTable() {
+  const tbody = document.getElementById('completedBody');
+  if (filteredList.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;padding:32px;color:var(--text-3);font-family:var(--sans);">${searchQuery ? 'No results for "' + esc(searchQuery) + '"' : 'No completed customers yet.'}</td></tr>`;
+    document.getElementById('paginationBar').innerHTML = '';
+    return;
+  }
+
+  const totalPages = Math.ceil(filteredList.length / rowsPerPage);
+  if (currentPage > totalPages) currentPage = totalPages;
+  const start = (currentPage - 1) * rowsPerPage;
+  const slice = filteredList.slice(start, start + rowsPerPage);
+
+  tbody.innerHTML = slice.map(c => `
+    <tr>
+      <td class="row-num mono">${c.rowNum}</td>
+      <td class="id-cell">${esc(c.displayId)}</td>
+      <td class="mono">${c.groupSize || 1}</td>
+      <td class="mono">${esc(c.pos || '—')}</td>
+      <td>${esc(c.remarks || '—')}</td>
+      <td class="mono">${fmt(c.timeIn)}</td>
+      <td class="mono">${fmt(c.startOrder)}</td>
+      <td class="mono">${fmt(c.timeOut)}</td>
+      <td class="mono" style="color:var(--amber)">${fmtDiff(c.waitMs)}</td>
+      <td class="mono" style="color:var(--teal)">${fmtDiff(c.totalMs)}</td>
+    </tr>`).join('');
+
+  renderPagination(totalPages);
+}
+
+function renderPagination(totalPages) {
+  const bar = document.getElementById('paginationBar');
+  const start = (currentPage - 1) * rowsPerPage + 1;
+  const end   = Math.min(currentPage * rowsPerPage, filteredList.length);
+
+  let pages = [];
+  if (totalPages <= 7) {
+    for (let i = 1; i <= totalPages; i++) pages.push(i);
+  } else {
+    pages = [1];
+    if (currentPage > 3) pages.push('…');
+    for (let i = Math.max(2, currentPage - 1); i <= Math.min(totalPages - 1, currentPage + 1); i++) pages.push(i);
+    if (currentPage < totalPages - 2) pages.push('…');
+    pages.push(totalPages);
+  }
+
+  bar.innerHTML = `
+    <span class="page-info">Showing ${start}–${end} of ${filteredList.length}</span>
+    <div class="page-controls">
+      <button class="page-btn" onclick="goPage(${currentPage-1})" ${currentPage===1?'disabled':''}>&#8249;</button>
+      ${pages.map(p => p === '…'
+        ? `<button class="page-btn ellipsis" disabled>…</button>`
+        : `<button class="page-btn ${p===currentPage?'active':''}" onclick="goPage(${p})">${p}</button>`
+      ).join('')}
+      <button class="page-btn" onclick="goPage(${currentPage+1})" ${currentPage===totalPages?'disabled':''}>&#8250;</button>
+    </div>`;
+}
+
+function goPage(p) {
+  const totalPages = Math.ceil(filteredList.length / rowsPerPage);
+  if (p < 1 || p > totalPages) return;
+  currentPage = p;
+  renderTable();
+  document.getElementById('completed-panel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// ── Tab switching ──
+function switchTab(btn) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById(btn.dataset.tab).classList.add('active');
+  if (btn.dataset.tab === 'completed-panel') { applyFilterSort(); renderTable(); }
+  if (btn.dataset.tab === 'left-panel') renderLeftTable();
+}
+
+// ── Export ──
+function exportExcel() {
+  if (completedList.length === 0 && leftQueueList.length === 0) {
+    showToast('No records to export');
+    return;
+  }
+  const wb = XLSX.utils.book_new();
+  const headers = ['#','Customer ID','Group','POS','Remarks','Time In','Order Start','Time Out','Wait Time (mm:ss.ms)','Total Time (mm:ss.ms)'];
+  const allPos = [...new Set(completedList.map(c => c.pos || 'No POS'))];
+  allPos.forEach(posName => {
+    const rows = [headers];
+    completedList.filter(c => (c.pos || 'No POS') === posName).forEach(c => {
+      rows.push([c.rowNum, c.displayId, c.groupSize || 1, c.pos || '—', c.remarks || '', fmt(c.timeIn), fmt(c.startOrder), fmt(c.timeOut), fmtDiff(c.waitMs), fmtDiff(c.totalMs)]);
+    });
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    ws['!cols'] = [6,22,8,12,20,16,16,16,20,20].map(w => ({ wch: w }));
+    XLSX.utils.book_append_sheet(wb, ws, posName.slice(0, 31));
+  });
+  const leftRows = [['#','Customer ID','Group','Remarks','Time In','Left At']];
+  leftQueueList.forEach(c => leftRows.push([c.rowNum, c.displayId, c.groupSize || 1, c.remarks || '', fmt(c.timeIn), fmt(c.leftAt)]));
+  const leftWs = XLSX.utils.aoa_to_sheet(leftRows);
+  leftWs['!cols'] = [6,22,8,24,16,16].map(w => ({ wch: w }));
+  XLSX.utils.book_append_sheet(wb, leftWs, 'Left Queue');
+  const date = new Date().toISOString().slice(0, 10);
+  XLSX.writeFile(wb, `customer_log_${date}.xlsx`);
+  showToast(`Exported ${completedList.length + leftQueueList.length} records`);
+}
+
+function renderPosButtons() {
+  const wrap = document.getElementById('posButtons');
+  wrap.innerHTML = posStations
+    .map(pos => `<button class="pos-btn ${pos === selectedPos ? 'active' : ''}" data-pos="${esc(pos)}">${esc(pos)}</button>`)
+    .join('');
+  wrap.querySelectorAll('.pos-btn').forEach(btn => {
+    btn.addEventListener('click', () => selectPos(btn.dataset.pos));
+  });
+}
+function selectPos(pos) {
+  if (!posStations.includes(pos)) {
+    showToast('Selected POS does not exist');
+    return;
+  }
+  selectedPos = pos;
+  renderPosButtons();
+  saveState();
+}
+function addPosStation() {
+  const input = document.getElementById('newPosInput');
+  const raw = input.value.trim().replace(/[\r\n\t]/g, ' ');
+  if (!raw) { showToast('Please enter a POS name'); return; }
+  if (raw.length > 31) { showToast('POS name must be 31 characters or fewer'); return; }
+  if (posStations.some(p => norm(p) === norm(raw))) { showToast('POS already exists'); return; }
+  posStations.push(raw);
+  selectedPos = raw;
+  input.value = '';
+  renderPosButtons();
+  saveState();
+}
+function removeSelectedPos() {
+  if (posStations.length <= 1) { showToast('At least one POS is required'); return; }
+  if (!selectedPos || !posStations.includes(selectedPos)) {
+    showToast('Selected POS does not exist');
+    selectedPos = posStations[0];
+    renderPosButtons();
+    saveState();
+    return;
+  }
+  const removedPos = selectedPos;
+  posStations = posStations.filter(p => p !== selectedPos);
+  selectedPos = posStations[0];
+  Object.values(customers).forEach(c => { if (c.pos === removedPos) c.pos = selectedPos; });
+  completedList.forEach(c => { if (c.pos === removedPos) c.pos = selectedPos; });
+  renderCards();
+  renderTable();
+  renderPosButtons();
+  saveState();
+}
+function updateLeftQueueRemarks(uid, value) {
+  const row = leftQueueList.find(c => c.uid === uid);
+  if (!row) {
+    showToast('Left queue record not found');
+    renderLeftTable();
+    return;
+  }
+  row.remarks = String(value || '').slice(0, 200);
+  saveState();
+}
+function renderLeftTable() {
+  const tbody = document.getElementById('leftBody');
+  if (!leftQueueList.length) {
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:32px;color:var(--text-3);font-family:var(--sans);">No customers have left the queue.</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = leftQueueList.map(c => `
+    <tr>
+      <td class="row-num mono">${c.rowNum}</td>
+      <td class="id-cell">${esc(c.displayId)}</td>
+      <td class="mono">${c.groupSize || 1}</td>
+      <td>
+        <input
+          class="card-field"
+          value="${esc(c.remarks || '')}"
+          placeholder="Remarks"
+          oninput="updateLeftQueueRemarks('${c.uid}', this.value)">
+      </td>
+      <td class="mono">${fmt(c.timeIn)}</td>
+      <td class="mono">${fmt(c.leftAt)}</td>
+    </tr>`).join('');
+}
+
+// ── Toast ──
+let toastTimer;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2400);
+}
+function openResetModal() {
+  document.getElementById('resetModal').classList.add('open');
+}
+function closeResetModal() {
+  document.getElementById('resetModal').classList.remove('open');
+}
+function resetAllData() {
+  closeResetModal();
+  Object.keys(customers).forEach(k => delete customers[k]);
+  completedList = [];
+  leftQueueList = [];
+  filteredList = [];
+  currentPage = 1;
+  rowsPerPage = 25;
+  sortCol = 'row';
+  sortDir = 'desc';
+  searchQuery = '';
+  pendingRemoveUid = null;
+  tickerRunning = false;
+  posStations = ['POS 1'];
+  selectedPos = 'POS 1';
+  tempCounter = 1;
+
+  const input = document.getElementById('custInput');
+  const groupInput = document.getElementById('groupInput');
+  const newPosInput = document.getElementById('newPosInput');
+  const searchInput = document.getElementById('searchInput');
+  const rowsSelect = document.getElementById('rowsPerPage');
+
+  if (input) input.value = '';
+  if (groupInput) groupInput.value = '1';
+  if (newPosInput) newPosInput.value = '';
+  if (searchInput) searchInput.value = '';
+  if (rowsSelect) rowsSelect.value = '25';
+
+  localStorage.removeItem(STORAGE_KEY);
+  applyFilterSort();
+  renderCards();
+  renderTable();
+  renderLeftTable();
+  renderPosButtons();
+  updateStats();
+  updateCounts();
+  showToast('All data reset');
+}
+
+// ── Init ──
+loadState();
+applyFilterSort();
+renderTable();
+renderLeftTable();
+renderPosButtons();
+startTicker();
+updateStats();
+updateCounts();
+</script>
+</body>
+</html>
