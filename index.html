@@ -80,7 +80,8 @@
 
   /* ── Active customer cards ── */
   .section-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
-  .section-title { font-size: 12px; font-weight: 600; color: var(--text-2); letter-spacing: .06em; text-transform: uppercase; }
+  .section-title { font-size: 12px; font-weight: 600; color: var(--text-2); letter-spacing: .06em; text-transform: uppercase; display: inline-flex; align-items: center; gap: 8px; }
+  .queue-pill { display: inline-flex; align-items: center; justify-content: center; background: var(--amber-light); color: var(--amber-text); border: 1px solid rgba(186,117,23,.25); border-radius: 99px; padding: 2px 8px; font-size: 10px; font-weight: 600; letter-spacing: .03em; }
   .cards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 12px; margin-bottom: 8px; }
   @media (max-width: 600px) { .cards-grid { grid-template-columns: 1fr; } }
 
@@ -226,7 +227,7 @@
 
     <!-- Stats -->
     <div class="stats-bar">
-      <div class="stat-card"><div class="stat-label">People checked in today</div><div class="stat-value teal" id="statTotal">0</div></div>
+      <div class="stat-card"><div class="stat-label">Total Checkout</div><div class="stat-value teal" id="statTotal">0</div></div>
       <div class="stat-card"><div class="stat-label">Currently waiting</div><div class="stat-value amber" id="statWaiting">0</div></div>
       <div class="stat-card"><div class="stat-label">Being served</div><div class="stat-value teal" id="statServing">0</div></div>
       <div class="stat-card"><div class="stat-label">Completed</div><div class="stat-value" id="statDone">0</div></div>
@@ -242,7 +243,7 @@
       </div>
       <div class="checkin-meta">
         <label style="margin:0;">Group size</label>
-        <input class="small-input" type="number" id="groupInput" min="1" value="1">
+        <input class="small-input" type="number" id="groupInput" min="1" step="1" placeholder="1 person" inputmode="numeric">
       </div>
       <div class="pos-wrap">
         <label style="margin-bottom:4px;">POS (Point of Sale)</label>
@@ -257,7 +258,7 @@
 
     <!-- Cards -->
     <div class="section-head">
-      <span class="section-title">Active Customers</span>
+      <span class="section-title">Active Customers <span class="queue-pill" id="queueCountLabel">Queue: 0</span></span>
     </div>
     <div id="cardsGrid" class="cards-grid"></div>
     <div id="emptyActive" class="empty">
@@ -291,15 +292,15 @@
           <thead>
             <tr>
               <th onclick="sortBy('row')">#<span class="sort-arrow" id="sort-row">↕</span></th>
-              <th onclick="sortBy('id')">Customer ID<span class="sort-arrow" id="sort-id">↕</span></th>
-              <th onclick="sortBy('groupSize')">Group<span class="sort-arrow" id="sort-groupSize">↕</span></th>
-              <th onclick="sortBy('pos')">POS<span class="sort-arrow" id="sort-pos">↕</span></th>
-              <th onclick="sortBy('remarks')">Remarks<span class="sort-arrow" id="sort-remarks">↕</span></th>
-              <th onclick="sortBy('timeIn')">Time In<span class="sort-arrow" id="sort-timeIn">↕</span></th>
-              <th onclick="sortBy('startOrder')">Order Start<span class="sort-arrow" id="sort-startOrder">↕</span></th>
-              <th onclick="sortBy('timeOut')">Time Out<span class="sort-arrow" id="sort-timeOut">↕</span></th>
-              <th onclick="sortBy('waitMs')">Wait Time<span class="sort-arrow" id="sort-waitMs">↕</span></th>
-              <th onclick="sortBy('totalMs')">Total Time<span class="sort-arrow" id="sort-totalMs">↕</span></th>
+              <th onclick="sortBy('id')">👤 Customer ID<span class="sort-arrow" id="sort-id">↕</span></th>
+              <th onclick="sortBy('groupSize')">👥 Group<span class="sort-arrow" id="sort-groupSize">↕</span></th>
+              <th onclick="sortBy('pos')">🧾 POS<span class="sort-arrow" id="sort-pos">↕</span></th>
+              <th onclick="sortBy('remarks')">📝 Remarks<span class="sort-arrow" id="sort-remarks">↕</span></th>
+              <th onclick="sortBy('timeIn')">🕒 Time In<span class="sort-arrow" id="sort-timeIn">↕</span></th>
+              <th onclick="sortBy('startOrder')">▶ Order Start<span class="sort-arrow" id="sort-startOrder">↕</span></th>
+              <th onclick="sortBy('timeOut')">✅ Time Out<span class="sort-arrow" id="sort-timeOut">↕</span></th>
+              <th onclick="sortBy('waitMs')">⏳ Wait Time<span class="sort-arrow" id="sort-waitMs">↕</span></th>
+              <th onclick="sortBy('totalMs')">⌛ Total Time<span class="sort-arrow" id="sort-totalMs">↕</span></th>
             </tr>
           </thead>
           <tbody id="completedBody"></tbody>
@@ -352,7 +353,7 @@
 <div class="modal-backdrop" id="confirmModal">
   <div class="modal">
     <div class="modal-icon">
-      <svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+      <svg viewBox="0 0 24 24"><path d="M14 4l-1.4 1.4L16.2 9H9v2h7.2l-3.6 3.6L14 16l6-6-6-6Z"/><path d="M4 5h7v2H6v10h5v2H4V5Z"/></svg>
     </div>
     <h2>Left Queue?</h2>
     <p>Move <strong id="modalCustName"></strong> to Left Queue? This will log them as having left the line.</p>
@@ -483,13 +484,22 @@ function checkIn() {
   const groupInput = document.getElementById('groupInput');
   const entered = input.value.trim();
   const id = entered || tempId();
-  const parsedGroup = Number.parseInt(groupInput.value, 10);
+  const parsedGroup = Number.parseInt(groupInput.value.trim(), 10);
+  const groupSize = Number.isNaN(parsedGroup) ? 1 : parsedGroup;
   if (!isPositiveInt(parsedGroup)) {
+    if (Number.isNaN(parsedGroup)) {
+      // Empty group size defaults to one person to avoid forcing users to erase/retype.
+    } else {
+      showToast('Group size must be a whole number greater than 0');
+      groupInput.focus();
+      return;
+    }
+  }
+  if (!isPositiveInt(groupSize)) {
     showToast('Group size must be a whole number greater than 0');
     groupInput.focus();
     return;
   }
-  const groupSize = parsedGroup;
   if (!selectedPos || !posStations.includes(selectedPos)) {
     showToast('Please select a valid POS station');
     return;
@@ -506,12 +516,9 @@ function checkIn() {
   const uid = 'c_' + Date.now() + '_' + Math.random().toString(36).slice(2,6);
   customers[uid] = { displayId: id, remarks: '', groupSize, pos: selectedPos || posStations[0] || 'POS 1', timeIn: new Date(), startOrder: null, timeOut: null, status: 'waiting' };
   input.value = '';
-  groupInput.value = '1';
+  groupInput.value = '';
   input.focus();
-  renderCards();
-  updateStats();
-  updateCounts();
-  renderLeftTable();
+  refreshDashboard();
   startTicker();
   saveState();
   showToast(`Checked in: ${id}`);
@@ -528,9 +535,10 @@ function startOrder(uid) {
   }
   customers[uid].startOrder = new Date();
   customers[uid].status = 'active';
-  customers[uid].pos = selectedPos;
-  renderCards();
-  updateStats();
+  if (!customers[uid].pos || !posStations.includes(customers[uid].pos)) {
+    customers[uid].pos = selectedPos;
+  }
+  refreshDashboard();
   saveState();
 }
 function undoStartOrder(uid) {
@@ -539,8 +547,7 @@ function undoStartOrder(uid) {
   customers[uid].startOrder = null;
   customers[uid].status = 'waiting';
   if (!customers[uid].pos) customers[uid].pos = selectedPos || posStations[0] || 'POS 1';
-  renderCards();
-  updateStats();
+  refreshDashboard();
   saveState();
 }
 function updateCustomerField(uid, key, value) {
@@ -583,6 +590,17 @@ function updateGroupSize(uid, value) {
   }
   customers[uid].groupSize = parsed;
   updateStats();
+  updateCounts();
+  saveState();
+}
+function updateCustomerPos(uid, pos) {
+  if (!customers[uid]) { showToast('Customer not found'); return; }
+  if (!posStations.includes(pos)) {
+    showToast('Selected POS does not exist');
+    renderCards();
+    return;
+  }
+  customers[uid].pos = pos;
   saveState();
 }
 
@@ -603,10 +621,8 @@ function checkOut(uid) {
 
   completedList.push({ ...c, uid });
   applyFilterSort();
-  renderCards();
   renderTable();
-  updateStats();
-  updateCounts();
+  refreshDashboard();
   saveState();
   showToast(`Checked out: ${c.displayId}`);
 }
@@ -639,10 +655,8 @@ function confirmRemove() {
     leftAt: new Date()
   });
   delete customers[uid];
-  renderCards();
+  refreshDashboard();
   renderLeftTable();
-  updateStats();
-  updateCounts();
   saveState();
   showToast(`Left queue: ${name}`);
 }
@@ -681,13 +695,23 @@ function renderCards() {
                 oninput="updateGroupSize('${uid}', this.value)">
             </span>
           </div>
-          <div class="tr"><span class="tl">POS</span><span class="tv">${esc(c.pos || '—')}</span></div>
+          <div class="tr">
+            <span class="tl">POS</span>
+            <span class="tv">
+              <select
+                class="small-input"
+                style="width:120px;padding:4px 6px;background:var(--surface);"
+                onchange="updateCustomerPos('${uid}', this.value)">
+                ${posStations.map(pos => `<option value="${esc(pos)}" ${pos === c.pos ? 'selected' : ''}>${esc(pos)}</option>`).join('')}
+              </select>
+            </span>
+          </div>
         </div>
         <div class="card-actions wrap">
-          <button class="btn btn-start" ${c.startOrder ? 'disabled' : ''} onclick="startOrder('${uid}')">Start Order</button>
-          <button class="btn btn-ghost" ${c.startOrder ? '' : 'disabled'} onclick="undoStartOrder('${uid}')">Undo Start</button>
-          <button class="btn btn-checkout" onclick="checkOut('${uid}')">Check Out</button>
-          <button class="btn btn-remove" onclick="openModal('${uid}')" title="Mark left queue">✕ Left Queue</button>
+          <button class="btn btn-start" ${c.startOrder ? 'disabled' : ''} onclick="startOrder('${uid}')">▶ Start Order</button>
+          <button class="btn btn-ghost" ${c.startOrder ? '' : 'disabled'} onclick="undoStartOrder('${uid}')">↺ Undo Start</button>
+          <button class="btn btn-checkout" onclick="checkOut('${uid}')">✓ Check Out</button>
+          <button class="btn btn-remove" onclick="openModal('${uid}')" title="Mark left queue">↩ Left Queue</button>
         </div>
       </div>
     </div>`).join('');
@@ -718,17 +742,31 @@ function startTicker() {
 // ── Stats ──
 function updateStats() {
   const vals = Object.values(customers);
-  document.getElementById('statTotal').textContent   = todayPeopleTotal();
-  document.getElementById('statWaiting').textContent = vals.filter(c => c.status === 'waiting').length;
-  document.getElementById('statServing').textContent = vals.filter(c => c.status === 'active').length;
-  document.getElementById('statDone').textContent    = completedList.length;
+  const waitingPeople = vals.filter(c => c.status === 'waiting').reduce((n, c) => n + (c.groupSize || 1), 0);
+  const servingPeople = vals.filter(c => c.status === 'active').reduce((n, c) => n + (c.groupSize || 1), 0);
+  const donePeople = completedList.reduce((n, c) => n + (c.groupSize || 1), 0);
+  const queuePeople = waitingPeople + servingPeople;
+  document.getElementById('statTotal').textContent   = donePeople;
+  document.getElementById('statWaiting').textContent = waitingPeople;
+  document.getElementById('statServing').textContent = servingPeople;
+  document.getElementById('statDone').textContent    = donePeople;
+  document.getElementById('queueCountLabel').textContent = `Queue: ${queuePeople}`;
 }
 
 function updateCounts() {
-  const active = Object.values(customers).filter(c => c.status !== 'done').length;
-  document.getElementById('activeCount').textContent    = active;
-  document.getElementById('completedCount').textContent = completedList.length;
-  document.getElementById('leftCount').textContent      = leftQueueList.length;
+  const activePeople = Object.values(customers)
+    .filter(c => c.status !== 'done')
+    .reduce((n, c) => n + (c.groupSize || 1), 0);
+  const completedPeople = completedList.reduce((n, c) => n + (c.groupSize || 1), 0);
+  const leftPeople = leftQueueList.reduce((n, c) => n + (c.groupSize || 1), 0);
+  document.getElementById('activeCount').textContent    = activePeople;
+  document.getElementById('completedCount').textContent = completedPeople;
+  document.getElementById('leftCount').textContent      = leftPeople;
+}
+function refreshDashboard() {
+  renderCards();
+  updateStats();
+  updateCounts();
 }
 
 // ── Table: search / sort / paginate ──
@@ -797,7 +835,13 @@ function renderTable() {
       <td class="id-cell">${esc(c.displayId)}</td>
       <td class="mono">${c.groupSize || 1}</td>
       <td class="mono">${esc(c.pos || '—')}</td>
-      <td>${esc(c.remarks || '—')}</td>
+      <td>
+        <input
+          class="card-field"
+          value="${esc(c.remarks || '')}"
+          placeholder="Remarks"
+          oninput="updateCompletedRemarks('${c.uid}', this.value)">
+      </td>
       <td class="mono">${fmt(c.timeIn)}</td>
       <td class="mono">${fmt(c.startOrder)}</td>
       <td class="mono">${fmt(c.timeOut)}</td>
@@ -929,6 +973,8 @@ function removeSelectedPos() {
   renderCards();
   renderTable();
   renderPosButtons();
+  updateStats();
+  updateCounts();
   saveState();
 }
 function updateLeftQueueRemarks(uid, value) {
@@ -936,6 +982,16 @@ function updateLeftQueueRemarks(uid, value) {
   if (!row) {
     showToast('Left queue record not found');
     renderLeftTable();
+    return;
+  }
+  row.remarks = String(value || '').slice(0, 200);
+  saveState();
+}
+function updateCompletedRemarks(uid, value) {
+  const row = completedList.find(c => c.uid === uid);
+  if (!row) {
+    showToast('Completed record not found');
+    renderTable();
     return;
   }
   row.remarks = String(value || '').slice(0, 200);
