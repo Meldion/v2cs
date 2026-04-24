@@ -123,6 +123,9 @@
   .card-actions { display: flex; gap: 6px; }
   .card-actions.wrap { flex-wrap: wrap; }
   .card-actions .btn { flex: 1; font-size: 12px; padding: 8px 4px; }
+  .card-actions .btn-ghost { background: #D8DEE4; color: #22303A; border: 1px solid #B6C1CB; }
+  .card-actions .btn-ghost:hover { background: #C8D0D8; color: #1A2731; }
+  .card-actions .btn-ghost:disabled { opacity: .55; cursor: not-allowed; }
   .btn-start { background: var(--teal-light); color: var(--teal-dark); border: 1px solid rgba(15,110,86,.2); }
   .btn-start:hover { background: var(--teal); color: white; }
   .btn-start:disabled { opacity: .35; cursor: not-allowed; }
@@ -207,7 +210,9 @@
     .stats-bar { grid-template-columns: 1fr 1fr; }
   }
   @media (min-width: 1280px) {
-    .app { padding: 20px 26px; }
+    .app { max-width: 1440px; margin: 0 auto; padding: 20px 26px; }
+    .card-actions .btn-ghost { background: #EEF2F5; color: #2D3B45; border-color: #CBD4DB; }
+    .card-actions .btn-ghost:hover { background: #D0D8DF; color: #1A2731; border-color: #AEB9C3; }
   }
 </style>
 </head>
@@ -379,11 +384,11 @@
     <div class="modal-icon">
       <svg viewBox="0 0 24 24"><path d="M14 4l-1.4 1.4L16.2 9H9v2h7.2l-3.6 3.6L14 16l6-6-6-6Z"/><path d="M4 5h7v2H6v10h5v2H4V5Z"/></svg>
     </div>
-    <h2>Left Queue?</h2>
-    <p>Move <strong id="modalCustName"></strong> to Left Queue? This will log them as having left the line.</p>
+    <h2 id="confirmModalTitle">Left Queue?</h2>
+    <p id="confirmModalText">Move <strong id="modalCustName"></strong> to Left Queue? This will log them as having left the line.</p>
     <div class="modal-actions">
       <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
-      <button class="btn btn-confirm-remove" onclick="confirmRemove()">Left Queue</button>
+      <button class="btn btn-confirm-remove" id="confirmModalActionBtn" onclick="confirmModalAction()">Left Queue</button>
     </div>
   </div>
 </div>
@@ -402,6 +407,8 @@ let sortCol       = 'row';
 let sortDir       = 'desc';
 let searchQuery   = '';
 let pendingRemoveUid = null;
+let pendingLeftDeleteUid = null;
+let confirmMode = null;
 let tickerRunning = false;
 let posStations = ['POS 1'];
 let selectedPos = 'POS 1';
@@ -656,13 +663,19 @@ function checkOut(uid) {
 function openModal(uid) {
   if (!customers[uid]) { showToast('Customer not found'); return; }
   if (customers[uid].status === 'done') { showToast('Cannot move checked out customer to left queue'); return; }
+  confirmMode = 'move-left';
   pendingRemoveUid = uid;
-  document.getElementById('modalCustName').textContent = customers[uid].displayId;
+  pendingLeftDeleteUid = null;
+  document.getElementById('confirmModalTitle').textContent = 'Left Queue?';
+  document.getElementById('confirmModalText').innerHTML = `Move <strong id="modalCustName">${esc(customers[uid].displayId)}</strong> to Left Queue? This will log them as having left the line.`;
+  document.getElementById('confirmModalActionBtn').textContent = 'Left Queue';
   document.getElementById('confirmModal').classList.add('open');
 }
 function closeModal() {
   document.getElementById('confirmModal').classList.remove('open');
   pendingRemoveUid = null;
+  pendingLeftDeleteUid = null;
+  confirmMode = null;
 }
 function confirmRemove() {
   const uid = pendingRemoveUid;
@@ -684,6 +697,16 @@ function confirmRemove() {
   renderLeftTable();
   saveState();
   showToast(`Left queue: ${name}`);
+}
+function confirmModalAction() {
+  if (confirmMode === 'delete-left') {
+    const uid = pendingLeftDeleteUid;
+    closeModal();
+    if (!uid) return;
+    removeLeftQueueEntry(uid, true);
+    return;
+  }
+  confirmRemove();
 }
 function renderCards() {
   const grid  = document.getElementById('cardsGrid');
@@ -1064,11 +1087,22 @@ function updateLeftQueueRemarks(uid, value) {
   row.remarks = String(value || '').slice(0, 200);
   saveState();
 }
-function removeLeftQueueEntry(uid) {
+function removeLeftQueueEntry(uid, confirmed = false) {
   const idx = leftQueueList.findIndex(c => c.uid === uid);
   if (idx < 0) {
     showToast('Left queue record not found');
     renderLeftTable();
+    return;
+  }
+  if (!confirmed) {
+    const targetName = leftQueueList[idx].displayId;
+    confirmMode = 'delete-left';
+    pendingLeftDeleteUid = uid;
+    pendingRemoveUid = null;
+    document.getElementById('confirmModalTitle').textContent = 'Delete Left Queue Entry?';
+    document.getElementById('confirmModalText').innerHTML = `Remove <strong id="modalCustName">${esc(targetName)}</strong> from Left Queue?`;
+    document.getElementById('confirmModalActionBtn').textContent = 'Delete';
+    document.getElementById('confirmModal').classList.add('open');
     return;
   }
   const removed = leftQueueList[idx];
