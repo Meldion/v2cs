@@ -743,27 +743,26 @@ function startTicker() {
 // ── Stats ──
 function updateStats() {
   const vals = Object.values(customers);
-  const waitingPeople = vals.filter(c => c.status === 'waiting').reduce((n, c) => n + (c.groupSize || 1), 0);
-  const servingPeople = vals.filter(c => c.status === 'active').reduce((n, c) => n + (c.groupSize || 1), 0);
+  const waitingCount = vals.filter(c => c.status === 'waiting').length;
+  const servingCount = vals.filter(c => c.status === 'active').length;
   const donePeople = completedList.reduce((n, c) => n + (c.groupSize || 1), 0);
   const doneCheckIns = completedList.length;
-  const queuePeople = waitingPeople + servingPeople;
   document.getElementById('statTotal').textContent   = doneCheckIns;
-  document.getElementById('statWaiting').textContent = waitingPeople;
-  document.getElementById('statServing').textContent = servingPeople;
+  document.getElementById('statWaiting').textContent = waitingCount;
+  document.getElementById('statServing').textContent = servingCount;
   document.getElementById('statDone').textContent    = donePeople;
-  document.getElementById('queueCountLabel').textContent = `Queue: ${queuePeople}`;
+  document.getElementById('queueCountLabel').textContent = `Queue: ${waitingCount}`;
 }
 
 function updateCounts() {
-  const activePeople = Object.values(customers)
+  const activeCount = Object.values(customers)
     .filter(c => c.status !== 'done')
-    .reduce((n, c) => n + (c.groupSize || 1), 0);
+    .length;
   const completedCheckIns = completedList.length;
-  const leftPeople = leftQueueList.reduce((n, c) => n + (c.groupSize || 1), 0);
-  document.getElementById('activeCount').textContent    = activePeople;
+  const leftCount = leftQueueList.length;
+  document.getElementById('activeCount').textContent    = activeCount;
   document.getElementById('completedCount').textContent = completedCheckIns;
-  document.getElementById('leftCount').textContent      = leftPeople;
+  document.getElementById('leftCount').textContent      = leftCount;
 }
 function refreshDashboard() {
   renderCards();
