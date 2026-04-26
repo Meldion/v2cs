@@ -90,9 +90,33 @@
   .pos-group-title { font-size: 12px; font-weight: 700; color: var(--text-2); letter-spacing: .05em; text-transform: uppercase; }
   .pos-group-count { font-size: 11px; color: var(--text-3); font-family: var(--mono); }
   .pos-group-cards { display: grid; grid-template-columns: 1fr; gap: 10px; }
+  .status-columns { display: grid; grid-template-columns: 1fr; gap: 10px; }
+  .status-column { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 8px; }
+  .status-column-title { font-size: 11px; font-weight: 700; color: var(--text-2); letter-spacing: .05em; text-transform: uppercase; margin-bottom: 8px; }
+  .status-column-cards { display: grid; grid-template-columns: 1fr; gap: 10px; }
   @media (min-width: 700px) and (max-width: 1199px) {
-    .cards-grid { grid-template-columns: 1fr 1fr; }
+  .tabs { max-width: 760px; margin: 0 auto 20px; }
+
+  .cards-grid { grid-template-columns: 1fr 1fr; }
+
+  /* When only one POS is active, let the POS group occupy the whole tab */
+  .cards-grid.single-pos {
+    grid-template-columns: 1fr;
+    max-width: none;
+    width: 100%;
+    margin: 0;
   }
+
+  .cards-grid.single-pos .pos-group {
+    width: 100%;
+  }
+
+  .status-columns {
+    grid-template-columns: 1fr 1fr;
+    align-items: stretch;
+    width: 100%;
+  }
+}
   @media (min-width: 1200px) {
     .cards-grid { grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); }
     .pos-group-cards { grid-template-columns: 1fr; }
@@ -270,7 +294,17 @@
       </div>
       <div class="checkin-meta">
         <label style="margin:0;">Group size</label>
-        <input class="small-input" type="number" id="groupInput" min="1" step="1" placeholder="1 person" inputmode="numeric">
+        <select class="small-input" id="groupInput">
+          <option value="" selected>1 person</option>
+          <option value="1">1 person</option>
+          <option value="2">2 people</option>
+          <option value="3">3 people</option>
+          <option value="4">4 people</option>
+          <option value="5">5 people</option>
+          <option value="6">6 people</option>
+          <option value="7">7 people</option>
+          <option value="8">8 people</option>
+        </select>
       </div>
       <div class="pos-wrap">
         <label style="margin-bottom:4px;">POS (Point of Sale)</label>
@@ -588,8 +622,8 @@ function updateCustomerField(uid, key, value) {
   if (key === 'displayId') {
     const next = String(value || '').trim();
     if (!next) {
-      showToast('Customer ID/name cannot be empty');
-      renderCards();
+      customers[uid].displayId = '';
+      saveState();
       return;
     }
     const duplicate = Object.entries(customers).some(([otherUid, other]) =>
@@ -642,6 +676,11 @@ function checkOut(uid) {
   const c = customers[uid];
   if (c.status === 'done') { showToast('Customer already checked out'); return; }
   if (!c.startOrder) { showToast('Cannot check out before starting order'); return; }
+  if (!String(c.displayId || '').trim()) {
+    showToast('Customer ID/name cannot be blank when checking out');
+    renderCards();
+    return;
+  }
   if (!c.pos) {
     c.pos = selectedPos || posStations[0] || 'POS 1';
   }
@@ -733,6 +772,14 @@ function renderCards() {
     const safeIdx = idx >= 0 ? idx : 0;
     return `pos-color-${(safeIdx % 6) + 1}`;
   };
+  const activeGroups = [...grouped.entries()].filter(([, list]) => list.length > 0);
+  const isSinglePosActive = activeGroups.length === 1;
+  grid.classList.toggle('single-pos', isSinglePosActive);
+  const groupSizeOptions = Array.from({ length: 8 }, (_, idx) => {
+    const value = idx + 1;
+    const label = value === 1 ? '1 person' : `${value} people`;
+    return `<option value="${value}">${label}</option>`;
+  }).join('');
 
   const cardHtml = (uid, c) => `
     <div class="cust-card ${c.status} ${posColorClass(c.pos || posStations[0] || 'POS 1')}" data-uid="${uid}">
@@ -752,13 +799,12 @@ function renderCards() {
           <div class="tr">
             <span class="tl">Group</span>
             <span class="tv">
-              <input
-                type="number"
-                min="1"
-                value="${c.groupSize || 1}"
+              <select
                 class="small-input"
                 style="width:70px;padding:4px 6px;background:var(--surface);"
-                oninput="updateGroupSize('${uid}', this.value)">
+                onchange="updateGroupSize('${uid}', this.value)">
+                ${groupSizeOptions.replace(`value="${c.groupSize || 1}"`, `value="${c.groupSize || 1}" selected`)}
+              </select>
             </span>
           </div>
           <div class="tr">
@@ -782,8 +828,28 @@ function renderCards() {
       </div>
     </div>`;
 
-  grid.innerHTML = [...grouped.entries()]
-    .filter(([, list]) => list.length > 0)
+  const renderSinglePosColumns = (list) => {
+    const waiting = list.filter(([, c]) => c.status === 'waiting');
+    const started = list.filter(([, c]) => c.status === 'active');
+    return `
+      <div class="status-columns">
+        <section class="status-column">
+          <div class="status-column-title">Waiting (${waiting.length})</div>
+          <div class="status-column-cards">
+            ${waiting.length ? waiting.map(([uid, c]) => cardHtml(uid, c)).join('') : '<div class="empty">No waiting customers</div>'}
+          </div>
+        </section>
+        <section class="status-column">
+          <div class="status-column-title">Order started (${started.length})</div>
+          <div class="status-column-cards">
+            ${started.length ? started.map(([uid, c]) => cardHtml(uid, c)).join('') : '<div class="empty">No orders started</div>'}
+          </div>
+        </section>
+      </div>
+    `;
+  };
+
+  grid.innerHTML = activeGroups
     .map(([pos, list]) => `
       <section class="pos-group">
         <div class="pos-group-head">
@@ -791,7 +857,7 @@ function renderCards() {
           <span class="pos-group-count">${list.length} active</span>
         </div>
         <div class="pos-group-cards">
-          ${list.map(([uid, c]) => cardHtml(uid, c)).join('')}
+          ${isSinglePosActive ? renderSinglePosColumns(list) : list.map(([uid, c]) => cardHtml(uid, c)).join('')}
         </div>
       </section>
     `).join('');
